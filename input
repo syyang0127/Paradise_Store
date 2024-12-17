@@ -1,0 +1,260 @@
+import sys
+import json
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, 
+                             QDesktopWidget, QLineEdit, QFileDialog, QLabel)
+from PyQt5.QtGui import QPainter, QColor, QPen
+from PyQt5.QtCore import QRect, Qt, QTimer
+
+# 노래 데이터를 저장할 변수
+song_data = None
+
+# JSON 파일 로드 함수
+def load_song_data(file_path):
+    with open(file_path, "r") as f:
+        data = json.load(f)
+        # note와 octave를 합친 형식으로 변환
+        for note_data in data["song"]:
+            note_data["full_note"] = f"{note_data['note']}{note_data['octave']}"
+        return data
+
+# 현재 음표와만 비교 함수
+def compare_with_song_data(note_input, current_note):
+    """
+    현재 음표와 입력된 음표만 비교합니다.
+    """
+    note = note_input[:-1].upper()
+    octave = note_input[-1]
+    full_note = f"{note}{octave}"
+
+    if full_note == current_note:
+        return True
+    return False
+
+# PyQt5 메인 윈도우
+class VirtualKeyboard(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Virtual Keyboard")
+        self.setGeometry(100, 100, 1000, 400)  # 윈도우 크기 조정
+        self.center_window()  # 창 중앙 정렬
+
+        # 메인 위젯 및 레이아웃 설정
+        self.central_widget = QWidget(self)
+        self.setCentralWidget(self.central_widget)
+        self.layout = QVBoxLayout(self.central_widget)
+
+        # 건반 뷰 추가
+        self.keyboard_view = KeyboardView(self)
+        self.layout.addWidget(self.keyboard_view)
+
+        # 입력 필드 추가
+        self.input_field = QLineEdit(self)
+        self.input_field.setPlaceholderText("계이름을 입력하세요 (예: C3)")
+        self.input_field.returnPressed.connect(self.handle_input)
+        self.layout.addWidget(self.input_field)
+
+        # 결과 라벨 추가
+        self.result_label = QLabel(self)
+        self.layout.addWidget(self.result_label)
+
+        # JSON 파일 선택 버튼 추가
+        self.load_button = QPushButton("Load JSON File", self)
+        self.load_button.clicked.connect(self.load_json_file)
+        self.layout.addWidget(self.load_button)
+
+        # JSON 데이터 실행 버튼 추가
+        self.play_button = QPushButton("Play Notes", self)
+        self.play_button.clicked.connect(self.play_notes_from_json)
+        self.layout.addWidget(self.play_button)
+
+        # 종료 버튼 추가
+        self.exit_button = QPushButton("Exit", self)
+        self.exit_button.clicked.connect(self.close)
+        self.layout.addWidget(self.exit_button)
+
+        self.note_index = 0
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.play_next_note)
+
+    def center_window(self):
+        """
+        화면 중앙에 창을 배치하는 메서드
+        """
+        window_geometry = self.frameGeometry()
+        screen_center = QDesktopWidget().availableGeometry().center()
+        window_geometry.moveCenter(screen_center)
+        self.move(window_geometry.topLeft())
+
+    def handle_input(self):
+        note_input = self.input_field.text().strip()
+
+        # 현재 음표와 비교하여 결과 확인
+        if song_data and self.note_index < len(song_data["song"]):
+            current_note = song_data["song"][self.note_index]["full_note"]
+            if compare_with_song_data(note_input, current_note):
+                self.result_label.setText(f"Correct! {note_input} is part of the song.")
+                self.result_label.setStyleSheet("color: green;")
+                self.highlight_next_note()
+            else:
+                self.result_label.setText(f"Incorrect! {note_input} is NOT part of the song.")
+                self.result_label.setStyleSheet("color: red;")
+
+    def load_json_file(self):
+        """
+        파일 선택 다이얼로그를 열고 JSON 파일을 로드
+        """
+        global song_data
+        options = QFileDialog.Options()
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select JSON File", "", "JSON Files (*.json)", options=options)
+        if file_path:
+            song_data = load_song_data(file_path)
+            self.input_field.setPlaceholderText(f"Loaded: {file_path.split('/')[-1]}")
+
+    def play_notes_from_json(self):
+        """
+        JSON 파일에서 계이름을 순서대로 실행
+        """
+        if not song_data:
+            self.input_field.setPlaceholderText("Please load a JSON file first!")
+            return
+
+        self.note_index = 0
+        self.timer.start(3000)  # 3000ms (3초) 간격으로 실행, 시간이 더 길어짐
+        self.result_label.setText("Please enter the first note.")
+        self.result_label.setStyleSheet("color: black;")
+
+    def play_next_note(self):
+        global song_data
+        if self.note_index < len(song_data["song"]):
+            note_data = song_data["song"][self.note_index]
+            note = note_data["full_note"]
+
+            # 기존 파란색 건반 초기화
+            self.keyboard_view.reset_highlighted_keys()
+
+            # 파란색 하이라이트 유지
+            self.keyboard_view.highlight_key(note, "blue")
+            self.result_label.setText(f"Enter the note: {note}")
+            self.input_field.setText("")  # 입력 필드 초기화
+        else:
+            self.timer.stop()
+            self.keyboard_view.reset_highlighted_keys()  # 건반 초기화
+            self.result_label.setText("All notes are played!")
+
+    def highlight_next_note(self):
+        """
+        현재 악보에서 다음 음표를 하이라이트
+        """
+        if self.note_index < len(song_data["song"]):
+            next_note = song_data["song"][self.note_index]
+            full_note = next_note["full_note"]
+            self.keyboard_view.highlight_key(full_note, "blue")
+            self.note_index += 1
+
+class KeyboardView(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMinimumSize(1000, 200)
+
+        # 건반 데이터 (C3 ~ C5)
+        self.keys = []
+        for octave in range(3, 5):
+            self.keys.extend([
+                {"note": f"C{octave}", "type": "white"},
+                {"note": f"C#{octave}", "type": "black"},
+                {"note": f"D{octave}", "type": "white"},
+                {"note": f"D#{octave}", "type": "black"},
+                {"note": f"E{octave}", "type": "white"},
+                {"note": f"F{octave}", "type": "white"},
+                {"note": f"F#{octave}", "type": "black"},
+                {"note": f"G{octave}", "type": "white"},
+                {"note": f"G#{octave}", "type": "black"},
+                {"note": f"A{octave}", "type": "white"},
+                {"note": f"A#{octave}", "type": "black"},
+                {"note": f"B{octave}", "type": "white"},
+            ])
+        self.keys.append({"note": "C5", "type": "white"})  # 마지막 C5 추가
+
+        self.key_rects = []
+        self.highlighted_keys = {}
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        self.key_rects = []
+
+        # 창 너비 기준으로 중앙 정렬 계산
+        widget_width = self.width()
+        total_white_keys = sum(1 for key in self.keys if key["type"] == "white")
+        total_width = total_white_keys * 40  # 각 흰 건반의 너비가 40px
+        start_x = (widget_width - total_width) // 2  # 중앙 정렬 시작 x 좌표
+
+        x = start_x  # 초기 x 위치 설정
+
+        # 흰 건반 그리기
+        for key in self.keys:
+            if key["type"] == "white":
+                rect = QRect(x+40, 50, 40, 100)
+                color = self.highlighted_keys.get(key["note"], Qt.white)
+                painter.setBrush(QColor(color))
+                painter.setPen(QPen(Qt.black))
+                painter.drawRect(rect)
+                self.key_rects.append((rect, key["note"]))
+                x += 40  # 흰 건반의 너비만큼 이동
+
+        # 검은 건반 그리기
+        x = start_x  # 흰 건반의 시작점 다시 계산
+        for i, key in enumerate(self.keys):
+            if key["type"] == "black":
+                # 검은 건반은 흰 건반의 중간에 위치
+                rect = QRect(x + 30, 50, 30, 70)
+                color = self.highlighted_keys.get(key["note"], Qt.black)
+                painter.setBrush(QColor(color))
+                painter.setPen(QPen(Qt.black))
+                painter.drawRect(rect)
+                self.key_rects.append((rect, key["note"]))
+            if key["type"] == "white":
+                x += 40
+
+    def mousePressEvent(self, event):
+        for rect, note in self.key_rects:
+            if rect.contains(event.pos()):
+                self.handle_note_action(note)
+                break
+
+    def handle_note_action(self, note):
+        global song_data
+        if song_data:
+            for note_data in song_data["song"]:
+                if note_data["full_note"] == note:
+                    if note_data.get("action") == "highlight":
+                        self.highlight_key(note, note_data.get("color", "yellow"))
+                    elif note_data.get("action") == "play":
+                        self.play_sound(note)
+                    break
+
+    def highlight_key(self, note, color):
+        # 기존 파란색 건반 초기화
+        for key in list(self.highlighted_keys.keys()):
+            self.highlighted_keys[key] = Qt.white if any(k["note"] == key and k["type"] == "white" for k in self.keys) else Qt.black
+
+        # 새로 입력된 건반 하이라이트
+        self.highlighted_keys[note] = color
+        self.update()
+
+    def reset_highlighted_keys(self):
+        """건반 색상을 초기화"""
+        self.highlighted_keys = {}
+        self.update()
+
+    def play_sound(self, note):
+        print(f"Playing sound for {note}")
+
+# PyQt5 앱 실행
+def main():
+    app = QApplication(sys.argv)
+    main_window = VirtualKeyboard()
+    main_window.show()
+    sys.exit(app.exec_())
+
+if __name__ == "__main__":
+    main()
