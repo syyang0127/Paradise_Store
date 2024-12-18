@@ -1,0 +1,7 @@
+# Include all main requirements
+-r requirements.txt
+
+flake8
+black
+pytest
+mypy
