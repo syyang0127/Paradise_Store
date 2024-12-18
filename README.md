@@ -6,7 +6,7 @@
 #### 실시간으로 안내하고, 올바른 연주 피드백을 제공합니다.
 ---
 # Flow Chart
-![TEAM_JOJO/readme_data](flowchart.png)
+![readme_data](flowchart.png)
 
 # High Level Design
 # Sequence Diagram
