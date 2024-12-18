@@ -1,0 +1,33 @@
+{
+    "song": [
+      {"note": "G", "octave": 4, "duration": "quarter"},
+      {"note": "G", "octave": 4, "duration": "quarter"},
+      {"note": "A", "octave": 4, "duration": "quarter"},
+      {"note": "A", "octave": 4, "duration": "quarter"},
+      {"note": "G", "octave": 4, "duration": "quarter"},
+      {"note": "G", "octave": 4, "duration": "quarter"},
+      {"note": "E", "octave": 4, "duration": "quarter"},
+      
+      {"note": "G", "octave": 4, "duration": "quarter"},
+      {"note": "G", "octave": 4, "duration": "quarter"},
+      {"note": "E", "octave": 4, "duration": "quarter"},
+      {"note": "E", "octave": 4, "duration": "quarter"},
+      {"note": "D", "octave": 4, "duration": "quarter"},
+      
+      {"note": "G", "octave": 4, "duration": "quarter"},
+      {"note": "G", "octave": 4, "duration": "quarter"},
+      {"note": "A", "octave": 4, "duration": "quarter"},
+      {"note": "A", "octave": 4, "duration": "quarter"},
+      {"note": "G", "octave": 4, "duration": "quarter"},
+      {"note": "G", "octave": 4, "duration": "quarter"},
+      {"note": "E", "octave": 4, "duration": "quarter"},
+
+      {"note": "G", "octave": 4, "duration": "quarter"},
+      {"note": "E", "octave": 4, "duration": "quarter"},
+      {"note": "D", "octave": 4, "duration": "quarter"},
+      {"note": "E", "octave": 4, "duration": "quarter"},
+      {"note": "C", "octave": 4, "duration": "quarter"}
+      
+    ]
+  }
+  

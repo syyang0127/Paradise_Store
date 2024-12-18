@@ -1,0 +1,52 @@
+{
+    "song": [
+      {"note": "C", "octave": 3, "duration": "quarter"},
+      {"note": "C", "octave": 3, "duration": "quarter"},
+      {"note": "G", "octave": 3, "duration": "quarter"},
+      {"note": "G", "octave": 3, "duration": "quarter"},
+      {"note": "A", "octave": 3, "duration": "quarter"},
+      {"note": "A", "octave": 3, "duration": "quarter"},
+      {"note": "G", "octave": 3, "duration": "half"},
+  
+      {"note": "F", "octave": 3, "duration": "quarter"},
+      {"note": "F", "octave": 3, "duration": "quarter"},
+      {"note": "E", "octave": 3, "duration": "quarter"},
+      {"note": "E", "octave": 3, "duration": "quarter"},
+      {"note": "D", "octave": 3, "duration": "quarter"},
+      {"note": "D", "octave": 3, "duration": "quarter"},
+      {"note": "C", "octave": 3, "duration": "half"},
+  
+      {"note": "G", "octave": 3, "duration": "quarter"},
+      {"note": "G", "octave": 3, "duration": "quarter"},
+      {"note": "F", "octave": 3, "duration": "quarter"},
+      {"note": "F", "octave": 3, "duration": "quarter"},
+      {"note": "E", "octave": 3, "duration": "quarter"},
+      {"note": "E", "octave": 3, "duration": "quarter"},
+      {"note": "D", "octave": 3, "duration": "half"},
+  
+      {"note": "G", "octave": 3, "duration": "quarter"},
+      {"note": "G", "octave": 3, "duration": "quarter"},
+      {"note": "F", "octave": 3, "duration": "quarter"},
+      {"note": "F", "octave": 3, "duration": "quarter"},
+      {"note": "E", "octave": 3, "duration": "quarter"},
+      {"note": "E", "octave": 3, "duration": "quarter"},
+      {"note": "D", "octave": 3, "duration": "half"},
+  
+      {"note": "C", "octave": 3, "duration": "quarter"},
+      {"note": "C", "octave": 3, "duration": "quarter"},
+      {"note": "G", "octave": 3, "duration": "quarter"},
+      {"note": "G", "octave": 3, "duration": "quarter"},
+      {"note": "A", "octave": 3, "duration": "quarter"},
+      {"note": "A", "octave": 3, "duration": "quarter"},
+      {"note": "G", "octave": 3, "duration": "half"},
+
+      {"note": "F", "octave": 3, "duration": "quarter"},
+      {"note": "F", "octave": 3, "duration": "quarter"},
+      {"note": "E", "octave": 3, "duration": "quarter"},
+      {"note": "E", "octave": 3, "duration": "quarter"},
+      {"note": "D", "octave": 3, "duration": "quarter"},
+      {"note": "D", "octave": 3, "duration": "quarter"},
+      {"note": "C", "octave": 3, "duration": "quarter"}
+    ]
+  }
+  
