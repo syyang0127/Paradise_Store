@@ -48,7 +48,7 @@ class CombinedWindow(QMainWindow):
         # QTimer로 프레임 업데이트
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_frame)
-        self.timer.start(30)
+        self.timer.start(50)
 
         # 가상 키보드 추가
         self.keyboard_view = KeyboardView(self)
@@ -77,27 +77,32 @@ class CombinedWindow(QMainWindow):
         self.timer_notes = QTimer(self)
         self.timer_notes.timeout.connect(self.play_next_note)
         self.is_note_correct = False
+        self.allow_note_check = True
 
     def update_frame(self):
         ret, frame = self.cap.read()
         if ret:
             # YOLO로 객체 감지 수행
             results = self.model(frame)
-            
+
             # YOLO 결과 처리
             if len(results) > 0 and len(results[0].boxes) > 0:
                 # 가장 높은 confidence를 가진 결과 선택
                 confidence = results[0].boxes.conf.cpu().numpy()
                 if len(confidence) > 0:
                     max_conf_idx = np.argmax(confidence)
-                    class_id = results[0].boxes.cls[max_conf_idx].item()
-                    detected_note = results[0].names[int(class_id)]
-                    
-                    # 감지된 음표가 변경되었을 때만 업데이트
-                    if self.detected_note != detected_note:
-                        self.detected_note = detected_note
-                        self.detected_label.setText(f"Detected Note: {detected_note}")
-                        self.check_detected_note()
+                    if confidence[max_conf_idx] >= 0.7:  # confidence 값 설정
+                        class_id = results[0].boxes.cls[max_conf_idx].item()
+                        detected_note = results[0].names[int(class_id)]
+
+                        # 감지된 음표가 변경되었을 때만 업데이트
+                        if self.detected_note != detected_note:
+                            self.detected_note = detected_note
+                            self.detected_label.setText(f"Detected Note: {detected_note}")
+                            if self.allow_note_check:
+                                self.check_detected_note()
+                    else:
+                        self.detected_note = None  # confidence 낮으면 초기화
 
             # 프레임 표시
             annotated_frame = results[0].plot()
@@ -114,16 +119,23 @@ class CombinedWindow(QMainWindow):
 
         if self.detected_note == correct_note:
             self.is_note_correct = True
-            self.note_index += 1
-            self.keyboard_view.reset_highlighted_keys()
+            self.allow_note_check = False
+            self.keyboard_view.highlight_key(correct_note, "green")  # 초록색으로 하이라이트
+            QTimer.singleShot(300, lambda: self.reset_and_highlight_next())  # 1000ms 후 초기화 후 1000ms 뒤 다음 노트 하이라이트 / 대기시간
 
-            if self.note_index < len(song_data["song"]):
-                next_note = song_data["song"][self.note_index]["note"]
-                self.keyboard_view.highlight_key(next_note, "blue")
-            else:
-                self.detected_label.setText("All notes played!")
+            # 웹캠 데이터를 초기화하여 다음 감지에 영향 주지 않음
+            self.detected_note = None
+
+    def reset_and_highlight_next(self):
+        self.keyboard_view.reset_highlighted_keys()
+        self.note_index += 1
+
+        if self.note_index < len(song_data["song"]):
+            next_note = song_data["song"][self.note_index]["note"]
+            QTimer.singleShot(300, lambda: self.keyboard_view.highlight_key(next_note, "blue"))
+            self.allow_note_check = True
         else:
-            self.is_note_correct = False
+            self.detected_label.setText("All notes played!")
 
     def load_json_file(self):
         global song_data
@@ -145,9 +157,9 @@ class CombinedWindow(QMainWindow):
             note_data = song_data["song"][self.note_index]
             note = note_data["note"]
 
+            # 다음 음표를 파란색으로 하이라이트 (깜빡임 없이 유지)
             self.keyboard_view.reset_highlighted_keys()
             self.keyboard_view.highlight_key(note, "blue")
-            QTimer.singleShot(500, self.keyboard_view.reset_highlighted_keys)
         else:
             self.timer_notes.stop()
             self.keyboard_view.reset_highlighted_keys()
@@ -155,9 +167,6 @@ class CombinedWindow(QMainWindow):
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Q:
             self.close()
-
-# KeyboardView 클래스는 변경 없음
-
 
 # 가상 키보드 클래스
 class KeyboardView(QWidget):
@@ -235,7 +244,7 @@ class KeyboardView(QWidget):
     def reset_highlighted_keys(self):
         self.highlighted_keys = {}
         self.update()
-        
+
 def main():
     os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = "/path/to/your/qt/plugins"
     
