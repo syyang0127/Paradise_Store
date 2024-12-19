@@ -10,17 +10,23 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout
 from PyQt5.QtGui import QPainter, QColor, QPen, QImage, QPixmap
 from PyQt5.QtCore import QRect, Qt, QTimer, QPoint
 
-
-# 노래 데이터를 저장할 변수
+# 악보 데이터를 저장할 변수
 song_data = None
 
-# JSON 파일 로드 함수
+# 악보 파일 로드 함수
 def load_song_data(file_path):
+    """
+    지정된 경로에서 json 형식의 악보 데이터를 로드
+    """
     with open(file_path, "r") as f:
         return json.load(f)
 
 class CombinedWindow(QMainWindow):
     def __init__(self):
+        """
+        메인 윈도우를 초기화
+        웹캠 화면, 가상 건반, 버튼을 포함
+        """
         super().__init__()
         self.setWindowTitle("Webcam and Virtual Keyboard")
         self.setGeometry(150, 150, 1000, 600)
@@ -50,29 +56,30 @@ class CombinedWindow(QMainWindow):
         self.timer.timeout.connect(self.update_frame)
         self.timer.start(50)
 
-        # 가상 키보드 추가
+        # 가상 건반 추가
         self.keyboard_view = KeyboardView(self)
         self.layout.addWidget(self.keyboard_view)
 
-        # JSON 파일 선택 버튼 추가
+        # 악보 파일 선택 버튼
         self.load_button = QPushButton("악보 선택", self)
         self.load_button.clicked.connect(self.load_json_file)
         self.layout.addWidget(self.load_button)
 
-        # 검출된 음표 표시 레이블
-        self.detected_label = QLabel("Detected Note: None", self)
+        # 인식된 건반(계이름) 표시 레이블
+        self.detected_label = QLabel("인식 안 됨", self)
         self.layout.addWidget(self.detected_label)
 
-        # JSON 데이터 실행 버튼 추가
+        # 악보 데이터 실행 버튼
         self.play_button = QPushButton("악보 연주 시작", self)
         self.play_button.clicked.connect(self.play_notes_from_json)
         self.layout.addWidget(self.play_button)
 
-        # 종료 버튼 추가
+        # 종료 버튼
         self.exit_button = QPushButton("프로그램 종료", self)
         self.exit_button.clicked.connect(self.close)
         self.layout.addWidget(self.exit_button)
 
+        # 상태 관리 변수 초기화
         self.note_index = 0
         self.timer_notes = QTimer(self)
         self.timer_notes.timeout.connect(self.play_next_note)
@@ -80,6 +87,10 @@ class CombinedWindow(QMainWindow):
         self.allow_note_check = True
 
     def update_frame(self):
+        """
+        웹캠 프레임을 업데이트하고 YOLO 모델을 사용해 건반 인식
+        인식 결과를 화면에 표시
+        """
         ret, frame = self.cap.read()
         if ret:
             results = self.model(frame)
@@ -99,6 +110,7 @@ class CombinedWindow(QMainWindow):
                     else:
                         self.detected_note = None
 
+            # YOLO 모델이 주석을 추가한 프레임을 표시
             annotated_frame = results[0].plot()
             annotated_frame = cv2.cvtColor(annotated_frame, cv2.COLOR_BGR2RGB)
             height, width, channel = annotated_frame.shape
@@ -106,6 +118,9 @@ class CombinedWindow(QMainWindow):
             self.webcam_label.setPixmap(QPixmap.fromImage(qt_image))
 
     def check_detected_note(self):
+        """
+        웹캠에서 인식된 건반이 json 데이터의 의해 지시된 건반 데이터와 일치하는지 체크
+        """
         if not song_data or self.detected_note is None:
             return
 
@@ -123,8 +138,10 @@ class CombinedWindow(QMainWindow):
             QTimer.singleShot(300, lambda: self.keyboard_view.reset_highlighted_keys())
             QTimer.singleShot(300, lambda: self.reset_and_highlight_next(False))
 
-    # 기존 reset_and_highlight_next 함수는 그대로 유지합니다.
     def reset_and_highlight_next(self, is_correct):
+        """
+        현재 건반 상태를 초기화 및 다음 건반 강조 표시
+        """
         self.keyboard_view.reset_highlighted_keys()
 
         if is_correct:
@@ -138,9 +155,15 @@ class CombinedWindow(QMainWindow):
             self.detected_label.setText("연주 완료!")
 
     def enable_note_check(self):
+        """
+        계이름 검사 enable
+        """
         self.allow_note_check = True
 
     def load_json_file(self):
+        """
+        json 형식의 악보 파일을 선택하고 load
+        """
         global song_data
         options = QFileDialog.Options()
         file_path, _ = QFileDialog.getOpenFileName(self, "악보 선택", "", "JSON Files (*.json)", options=options)
@@ -148,6 +171,9 @@ class CombinedWindow(QMainWindow):
             song_data = load_song_data(file_path)
 
     def play_notes_from_json(self):
+        """
+        JSON 파일에서 계이름 데이터를 읽어와서 표시
+        """
         if not song_data:
             return
         self.note_index = 0
@@ -155,6 +181,10 @@ class CombinedWindow(QMainWindow):
         self.timer_notes.start(1500)
 
     def play_next_note(self):
+        """
+        조건이 일치하면
+        다음 건반을 지시
+        """
         global song_data
         if self.note_index < len(song_data["song"]):
             note_data = song_data["song"][self.note_index]
@@ -167,11 +197,18 @@ class CombinedWindow(QMainWindow):
             self.keyboard_view.reset_highlighted_keys()
     
     def keyPressEvent(self, event):
+        """
+        키보드 Q를 입력하면 종료
+        """
         if event.key() == Qt.Key_Q:
             self.close()
 
 class KeyboardView(QWidget):
     def __init__(self, parent=None):
+        """
+        가상 건반을 초기화하고
+        건반 별로 실제 건반의 색상과 매칭되는 색상 지정
+        """
         super().__init__(parent)
         self.setMinimumSize(2000, 400)
 
@@ -196,6 +233,9 @@ class KeyboardView(QWidget):
         self.arrow_color = "#0000FF"  # 기본 파란색
 
     def paintEvent(self, event):
+        """
+        가상 건반과 화살표 그리기
+        """
         painter = QPainter(self)
         self.key_rects = []
 
@@ -206,7 +246,7 @@ class KeyboardView(QWidget):
 
         x = start_x
 
-        for key in self.keys:
+        for key in self.keys:   
             if key["type"] == "white":
                 rect = QRect(x + 80, 50, 80, 200)
                 color = self.highlighted_keys.get(key["note"], key["color"])
@@ -241,15 +281,25 @@ class KeyboardView(QWidget):
             ])
 
     def highlight_key(self, note, color):
+        """
+        실제 건반에 지정된 색상에 맞춰
+        가상 키보드에 색상 지정
+        """
         self.highlighted_keys[note] = color
         self.update()
 
     def reset_highlighted_keys(self):
+        """
+        건반과 화살표 초기화
+        """
         self.highlighted_keys = {}
         self.arrow_position = None
         self.update()
 
     def set_arrow_position(self, note, color):
+        """
+        악보 데이터에 의해 지시되는 건반 위에 화살표를 표시
+        """
         self.arrow_color = color
         for rect, key_note in self.key_rects:
             if key_note == note:
@@ -259,6 +309,10 @@ class KeyboardView(QWidget):
 
 
 def main():
+    """
+    프로그램 진입. 
+    QApplication을 초기화하고 CombinedWindow를 실행
+    """
     os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = "/path/to/your/qt/plugins"
     
     app = QApplication(sys.argv)
