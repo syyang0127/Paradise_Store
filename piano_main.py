@@ -8,7 +8,8 @@ import numpy as np
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, 
                              QDesktopWidget, QLineEdit, QFileDialog, QLabel)
 from PyQt5.QtGui import QPainter, QColor, QPen, QImage, QPixmap
-from PyQt5.QtCore import QRect, Qt, QTimer
+from PyQt5.QtCore import QRect, Qt, QTimer, QPoint
+
 
 # 노래 데이터를 저장할 변수
 song_data = None
@@ -18,7 +19,6 @@ def load_song_data(file_path):
     with open(file_path, "r") as f:
         return json.load(f)
 
-# PyQt5 통합된 창 (웹캠과 가상 키보드)
 class CombinedWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -27,7 +27,7 @@ class CombinedWindow(QMainWindow):
 
         # YOLO 모델 로드
         self.model = YOLO("./test_files/best_1_1680.pt")
-        self.detected_note = None  # YOLO로 감지된 음표를 저장할 변수
+        self.detected_note = None
 
         # 중앙 위젯과 레이아웃 설정
         self.central_widget = QWidget(self)
@@ -55,7 +55,7 @@ class CombinedWindow(QMainWindow):
         self.layout.addWidget(self.keyboard_view)
 
         # JSON 파일 선택 버튼 추가
-        self.load_button = QPushButton("Load JSON File", self)
+        self.load_button = QPushButton("악보 선택", self)
         self.load_button.clicked.connect(self.load_json_file)
         self.layout.addWidget(self.load_button)
 
@@ -64,16 +64,16 @@ class CombinedWindow(QMainWindow):
         self.layout.addWidget(self.detected_label)
 
         # JSON 데이터 실행 버튼 추가
-        self.play_button = QPushButton("Play Notes", self)
+        self.play_button = QPushButton("악보 연주 시작", self)
         self.play_button.clicked.connect(self.play_notes_from_json)
         self.layout.addWidget(self.play_button)
 
         # 종료 버튼 추가
-        self.exit_button = QPushButton("Exit", self)
+        self.exit_button = QPushButton("프로그램 종료", self)
         self.exit_button.clicked.connect(self.close)
         self.layout.addWidget(self.exit_button)
 
-        self.note_index = 0  # 현재 계이름의 인덱스
+        self.note_index = 0
         self.timer_notes = QTimer(self)
         self.timer_notes.timeout.connect(self.play_next_note)
         self.is_note_correct = False
@@ -82,29 +82,23 @@ class CombinedWindow(QMainWindow):
     def update_frame(self):
         ret, frame = self.cap.read()
         if ret:
-            # YOLO로 객체 감지 수행
             results = self.model(frame)
-
-            # YOLO 결과 처리
             if len(results) > 0 and len(results[0].boxes) > 0:
-                # 가장 높은 confidence를 가진 결과 선택
                 confidence = results[0].boxes.conf.cpu().numpy()
                 if len(confidence) > 0:
                     max_conf_idx = np.argmax(confidence)
-                    if confidence[max_conf_idx] >= 0.7:  # confidence 값 설정
+                    if confidence[max_conf_idx] >= 0.7:
                         class_id = results[0].boxes.cls[max_conf_idx].item()
                         detected_note = results[0].names[int(class_id)]
 
-                        # 감지된 음표가 변경되었을 때만 업데이트
                         if self.detected_note != detected_note:
                             self.detected_note = detected_note
-                            self.detected_label.setText(f"Detected Note: {detected_note}")
+                            self.detected_label.setText(f"{detected_note} 건반 누름")
                             if self.allow_note_check:
                                 self.check_detected_note()
                     else:
-                        self.detected_note = None  # confidence 낮으면 초기화
+                        self.detected_note = None
 
-            # 프레임 표시
             annotated_frame = results[0].plot()
             annotated_frame = cv2.cvtColor(annotated_frame, cv2.COLOR_BGR2RGB)
             height, width, channel = annotated_frame.shape
@@ -120,27 +114,36 @@ class CombinedWindow(QMainWindow):
         if self.detected_note == correct_note:
             self.is_note_correct = True
             self.allow_note_check = False
-            self.keyboard_view.highlight_key(correct_note, "green")  # 초록색으로 하이라이트
-            QTimer.singleShot(300, lambda: self.reset_and_highlight_next())  # 1000ms 후 초기화 후 1000ms 뒤 다음 노트 하이라이트 / 대기시간
+            self.keyboard_view.set_arrow_position(correct_note, "#00FF00")  # 초록색 화살표
+            QTimer.singleShot(300, lambda: self.reset_and_highlight_next(True))
+        else:
+            self.is_note_correct = False
+            self.allow_note_check = False
+            self.keyboard_view.set_arrow_position(self.detected_note, "#FF0000")  # 빨간색 화살표
+            QTimer.singleShot(300, lambda: self.keyboard_view.reset_highlighted_keys())
+            QTimer.singleShot(300, lambda: self.reset_and_highlight_next(False))
 
-            # 웹캠 데이터를 초기화하여 다음 감지에 영향 주지 않음
-            self.detected_note = None
-
-    def reset_and_highlight_next(self):
+    # 기존 reset_and_highlight_next 함수는 그대로 유지합니다.
+    def reset_and_highlight_next(self, is_correct):
         self.keyboard_view.reset_highlighted_keys()
-        self.note_index += 1
+
+        if is_correct:
+            self.note_index += 1
 
         if self.note_index < len(song_data["song"]):
             next_note = song_data["song"][self.note_index]["note"]
-            QTimer.singleShot(300, lambda: self.keyboard_view.highlight_key(next_note, "blue"))
-            self.allow_note_check = True
+            self.keyboard_view.set_arrow_position(next_note, "#0000FF")  # 파란색 화살표
+            QTimer.singleShot(500, lambda: self.enable_note_check())
         else:
-            self.detected_label.setText("All notes played!")
+            self.detected_label.setText("연주 완료!")
+
+    def enable_note_check(self):
+        self.allow_note_check = True
 
     def load_json_file(self):
         global song_data
         options = QFileDialog.Options()
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select JSON File", "", "JSON Files (*.json)", options=options)
+        file_path, _ = QFileDialog.getOpenFileName(self, "악보 선택", "", "JSON Files (*.json)", options=options)
         if file_path:
             song_data = load_song_data(file_path)
 
@@ -157,41 +160,40 @@ class CombinedWindow(QMainWindow):
             note_data = song_data["song"][self.note_index]
             note = note_data["note"]
 
-            # 다음 음표를 파란색으로 하이라이트 (깜빡임 없이 유지)
             self.keyboard_view.reset_highlighted_keys()
-            self.keyboard_view.highlight_key(note, "blue")
+            self.keyboard_view.set_arrow_position(note, "#0000FF")
         else:
             self.timer_notes.stop()
             self.keyboard_view.reset_highlighted_keys()
-
+    
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Q:
             self.close()
 
-# 가상 키보드 클래스
 class KeyboardView(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMinimumSize(2000, 400)
 
-        # 건반 데이터 (C ~ B)
         self.keys = [
-            {"note": "C", "type": "white"},
-            {"note": "C#", "type": "black"},
-            {"note": "D", "type": "white"},
-            {"note": "D#", "type": "black"},
-            {"note": "E", "type": "white"},
-            {"note": "F", "type": "white"},
-            {"note": "F#", "type": "black"},
-            {"note": "G", "type": "white"},
-            {"note": "G#", "type": "black"},
-            {"note": "A", "type": "white"},
-            {"note": "A#", "type": "black"},
-            {"note": "B", "type": "white"},
+            {"note": "C", "type": "white", "color": "#CEA6F9"},
+            {"note": "C#", "type": "black", "color": "#000000"},
+            {"note": "D", "type": "white", "color": "#F5AF64"},
+            {"note": "D#", "type": "black", "color": "#000000"},
+            {"note": "E", "type": "white", "color": "#0000CD"},
+            {"note": "F", "type": "white", "color": "#FFD732"},
+            {"note": "F#", "type": "black", "color": "#000000"},
+            {"note": "G", "type": "white", "color": "#DF0101"},
+            {"note": "G#", "type": "black", "color": "#000000"},
+            {"note": "A", "type": "white", "color": "#A5DF00"},
+            {"note": "A#", "type": "black", "color": "#000000"},
+            {"note": "B", "type": "white", "color": "#6991E1"},
         ]
 
         self.key_rects = []
         self.highlighted_keys = {}
+        self.arrow_position = None
+        self.arrow_color = "#0000FF"  # 기본 파란색
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -204,23 +206,21 @@ class KeyboardView(QWidget):
 
         x = start_x
 
-        # 흰 건반 그리기
         for key in self.keys:
             if key["type"] == "white":
-                rect = QRect(x+80, 50, 80, 200)
-                color = self.highlighted_keys.get(key["note"], Qt.white)
+                rect = QRect(x + 80, 50, 80, 200)
+                color = self.highlighted_keys.get(key["note"], key["color"])
                 painter.setBrush(QColor(color))
                 painter.setPen(QPen(Qt.black))
                 painter.drawRect(rect)
                 self.key_rects.append((rect, key["note"]))
                 x += 80
 
-        # 검은 건반 그리기
         x = start_x
         for key in self.keys:
             if key["type"] == "black":
                 rect = QRect(x + 50, 50, 60, 140)
-                color = self.highlighted_keys.get(key["note"], Qt.black)
+                color = self.highlighted_keys.get(key["note"], key["color"])
                 painter.setBrush(QColor(color))
                 painter.setPen(QPen(Qt.black))
                 painter.drawRect(rect)
@@ -228,14 +228,17 @@ class KeyboardView(QWidget):
             if key["type"] == "white":
                 x += 80
 
-    def mousePressEvent(self, event):
-        for rect, note in self.key_rects:
-            if rect.contains(event.pos()):
-                self.handle_note_action(note)
-                break
-
-    def handle_note_action(self, note):
-        print(f"Key pressed: {note}")
+        if self.arrow_position:
+            arrow_rect, arrow_note = self.arrow_position
+            arrow_x = arrow_rect.center().x()
+            arrow_y = arrow_rect.top() - 30
+            painter.setPen(QPen(QColor(self.arrow_color), 3))
+            painter.setBrush(QColor(self.arrow_color))
+            painter.drawPolygon([
+                QPoint(arrow_x - 10, arrow_y),
+                QPoint(arrow_x + 10, arrow_y),
+                QPoint(arrow_x, arrow_y + 20),
+            ])
 
     def highlight_key(self, note, color):
         self.highlighted_keys[note] = color
@@ -243,7 +246,17 @@ class KeyboardView(QWidget):
 
     def reset_highlighted_keys(self):
         self.highlighted_keys = {}
+        self.arrow_position = None
         self.update()
+
+    def set_arrow_position(self, note, color):
+        self.arrow_color = color
+        for rect, key_note in self.key_rects:
+            if key_note == note:
+                self.arrow_position = (rect, note)
+                break
+        self.update()
+
 
 def main():
     os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] = "/path/to/your/qt/plugins"
