@@ -1,7 +1,5 @@
-# Include all main requirements
--r requirements.txt
-
-flake8
-black
-pytest
-mypy
+flake8>=6.0.0
+black>=23.0
+pytest>=7.0.0
+pytest-qt>=4.0.0
+mypy>=1.0.0
